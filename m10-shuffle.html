@@ -1,0 +1,576 @@
+<title>M10 Dutch Shuffle</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: exam-booklet card, one question at a time; text-selector tiles above; score ledger in header.
+   Passages set in a serif to read as printed exam text; all UI chrome in Plex Sans. */
+:root{
+  --bg:#eceae4; --surface:#fffefb; --ink:#1b1c1a; --muted:#61635d; --line:#d6d3c9;
+  --accent:#1f4f7a; --accent-ink:#ffffff; --tile:#e2e0d8; --soft:#f5f3ed;
+  --good:#1c6b3f; --good-bg:#e2f0e6; --bad:#a32b22; --bad-bg:#fae6e3;
+  --flag:#8a5a00; --flag-bg:#f7eeda; --paper:#fffdf6;
+  --f-ui:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-read:"Source Serif 4",Georgia,"Times New Roman",serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#14161a; --surface:#1d2026; --ink:#e8e9e6; --muted:#9a9d97; --line:#333740;
+  --accent:#74b3e4; --accent-ink:#0b1219; --tile:#242830; --soft:#1a1d23;
+  --good:#63cf92; --good-bg:#12301f; --bad:#ff8f84; --bad-bg:#3a1714;
+  --flag:#efc266; --flag-bg:#312715; --paper:#1a1d23; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#14161a; --surface:#1d2026; --ink:#e8e9e6; --muted:#9a9d97; --line:#333740;
+  --accent:#74b3e4; --accent-ink:#0b1219; --tile:#242830; --soft:#1a1d23;
+  --good:#63cf92; --good-bg:#12301f; --bad:#ff8f84; --bad-bg:#3a1714;
+  --flag:#efc266; --flag-bg:#312715; --paper:#1a1d23; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-ui);font-size:15px;line-height:1.5;margin:0}
+.wrap{max-width:820px;margin:0 auto;padding-block:20px 48px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:grid;gap:14px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font-size:1.5rem;margin:0;letter-spacing:-.015em;text-wrap:balance}
+.sub{color:var(--muted);margin:3px 0 0;font-size:.87rem;max-width:56ch}
+.stats{display:flex;gap:8px;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:6px 10px;text-align:center;min-width:62px}
+.stat b{display:block;font-size:1.02rem}
+.stat span{font-size:.62rem;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-family:var(--f-ui)}
+.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.tile{appearance:none;border:1px solid var(--line);background:var(--tile);color:var(--ink);border-radius:6px;
+  padding:8px 10px;text-align:left;cursor:pointer;font:inherit;display:grid;min-width:0}
+.tile .sym{font-family:var(--f-mono);font-weight:600;font-size:1.02rem}
+.tile .nm{font-size:.72rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile .ct{font-family:var(--f-mono);font-size:.68rem;color:var(--muted)}
+.tile[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.tile[aria-pressed="true"] .nm,.tile[aria-pressed="true"] .ct{color:var(--accent-ink);opacity:.85}
+button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:grid;gap:14px;min-width:0}
+.meta{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px;font-size:.78rem;color:var(--muted)}
+.meta .src{font-family:var(--f-mono)}
+.hidden-src{font-style:italic;opacity:.65}
+details.passage{border:1px solid var(--line);border-radius:8px;background:var(--paper);min-width:0}
+details.passage>summary{cursor:pointer;padding:9px 12px;font-size:.8rem;font-weight:600;color:var(--accent);list-style:none}
+details.passage>summary::-webkit-details-marker{display:none}
+details.passage>summary::before{content:"▸ ";font-family:var(--f-mono)}
+details.passage[open]>summary::before{content:"▾ "}
+.ptext{padding:0 14px 14px;font-family:var(--f-read);font-size:.93rem;line-height:1.62;max-height:46vh;overflow:auto}
+.ptext h4{font-family:var(--f-ui);font-size:.74rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:10px 0 6px}
+.ptext p{margin:0 0 .7em;display:flex;gap:10px;align-items:baseline}
+.ptext p>i{font-family:var(--f-mono);font-style:normal;font-size:.68rem;color:var(--muted);flex:0 0 1.6em;text-align:right;user-select:none}
+.ptext p>span{min-width:0}
+.ptext .pn{font-family:var(--f-mono);font-style:normal;color:var(--accent);font-weight:600}
+.prompt{font-size:1.04rem;font-weight:500;display:flex;gap:10px;align-items:baseline;justify-content:space-between;text-wrap:balance}
+.prompt .mk{font-family:var(--f-mono);color:var(--muted);white-space:nowrap;font-size:.84rem}
+.qtxt{min-width:0}
+.opts{display:grid;gap:7px}
+.opt{appearance:none;font:inherit;text-align:left;border:1px solid var(--line);background:var(--soft);color:var(--ink);
+  border-radius:8px;padding:10px 12px;cursor:pointer;display:flex;gap:10px;align-items:baseline;min-width:0}
+.opt .k{font-family:var(--f-mono);font-weight:600;color:var(--accent);flex:none}
+.opt:hover:not(:disabled){border-color:var(--accent)}
+.opt[aria-pressed="true"]{border-color:var(--accent);background:var(--tile)}
+.opt.ok{border-color:var(--good);background:var(--good-bg)}
+.opt.no{border-color:var(--bad);background:var(--bad-bg)}
+.opt:disabled{cursor:default}
+.tf{display:flex;gap:10px;flex-wrap:wrap}
+.tf .opt{flex:1 1 140px;justify-content:center}
+textarea{width:100%;min-height:76px;resize:vertical;font:inherit;padding:10px;border-radius:8px;
+  border:1px solid var(--line);background:var(--soft);color:var(--ink)}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.btn{appearance:none;font:inherit;font-weight:600;border-radius:8px;padding:10px 18px;cursor:pointer;
+  border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink)}
+.btn.ghost{background:transparent;color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:default}
+.ms{border-radius:8px;background:var(--soft);border:1px solid var(--line);padding:12px 14px;display:grid;gap:10px}
+.ms h3{margin:0;font-size:.72rem;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.pt{display:flex;gap:10px;align-items:flex-start;cursor:pointer}
+.pt input{margin-top:3px;width:18px;height:18px;flex:none}
+.pt q{font-family:var(--f-read);font-size:.95rem}
+.verdict{font-weight:600;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.verdict.ok{color:var(--good)} .verdict.no{color:var(--bad)}
+.exp{font-size:.89rem;color:var(--muted);border-left:3px solid var(--line);padding-left:10px;min-width:0}
+.exp b{color:var(--ink);font-weight:600}
+.flag{background:var(--flag-bg);border:1px solid var(--flag);color:var(--flag);border-radius:8px;
+  padding:9px 12px;font-size:.84rem;min-width:0}
+.hint{color:var(--muted);font-size:.78rem;margin:0}
+.done{display:grid;gap:14px;justify-items:center;text-align:center;padding:12px 0}
+.done .big{font-family:var(--f-mono);font-size:2.3rem;font-weight:600;font-variant-numeric:tabular-nums}
+.bybits{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:8px;width:100%}
+.bybits div{background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:8px;
+  font-family:var(--f-mono);font-size:.8rem;font-variant-numeric:tabular-nums}
+.bybits span{display:block;font-family:var(--f-ui);font-size:.66rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+@media (max-width:560px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}.stat{min-width:54px}h1{font-size:1.3rem}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>M10 Dutch Shuffle</h1>
+      <p class="sub">Dutch B HL Paper 1, May 2010 — all 32 Deel A questions in random order. The question number stays hidden until you answer, so you can't recognise it by its label.</p>
+    </div>
+    <div class="stats" aria-live="polite">
+      <div class="stat"><b id="sMarks">0/0</b><span>Marks</span></div>
+      <div class="stat"><b id="sStreak">0</b><span>Streak</span></div>
+      <div class="stat"><b id="sLeft">0</b><span>Left</span></div>
+    </div>
+  </header>
+  <nav class="tiles" id="tiles" aria-label="Choose text"></nav>
+  <main class="card" id="card"></main>
+  <p class="hint">A–K or 1–9 pick an option · Enter reveals / saves / moves on · S skips to the end of the round. Progress is kept in this browser.</p>
+</div>
+
+<script>
+"use strict";
+const PASSAGE={
+A:{title:"Tekst A — Status of sfeer?",lines:[
+"Bijna elke profvoetbalclub in West-Europa heeft er een: een (relatief) recentelijk gebouwd",
+"en soms zelfs geheel overdekt stadion. Een stad die zoiets niet heeft, telt eigenlijk niet meer mee.",
+"Zo'n modern stadion zal commercieel gezien wel een meerwaarde hebben, maar die ging wel",
+"ten koste van de typische ouderwetse onvervalste voetbalsfeer.",
+"Maar zeg nou zelf: wat zijn die nieuwe stadions nu eigenlijk? In feite niet veel meer dan",
+"betonnen prefab-bouwpakketten, zonder enig gevoel voor smaak in elkaar gezet. Ze doen ons",
+"denken aan eenheidsworst en ze zijn zielloos, puur neergezet om bezoekers en genodigden,",
+"die mogen plaatsnemen in de dure skyboxen, te plezieren. Goed, de meeste stadions zijn er",
+"ook qua capaciteit op vooruitgegaan, in die zin dat er meer zitplaatsen zijn en er doorgaans",
+"meer mensen in kunnen. Maar dat laatste is niet altijd waar. In geval er minder plaatsen",
+"beschikbaar zijn, worden er veel hogere toegangsprijzen gevraagd. Dat heeft als consequentie",
+"dat sommige van deze groteske stadions er financieel op achteruit gaan, omdat een groot",
+"aantal supporters de toegangsprijzen en de prijzen van seizoenabonnementen niet meer",
+"kan betalen.",
+"Vraag eens aan willekeurige supporters van een voetbalclub die speelt in zo'n futuristische",
+"bouwdoos, met hoeveel plezier ze nog naar wedstrijden gaan kijken. Grote kans dat zij hun",
+"afkeer laten blijken van deze centra waar nog veel meer andere evenementen plaatsvinden en",
+"ze met weemoed beginnen te vertellen over de tijd toen stadions nog gewoon de sfeer van",
+"echt voetbal uitademden. Meestal vier aparte tribunes, waarvan elk met een eigen identiteit,",
+"afhankelijk van de groep die er plaatsnam. Ook de bezoekende partij had ontzag daarvoor.",
+"Vandaag de dag spelen in Nederland nog slechts 7 van de 38 profclubs in een stadion",
+"dat niet of nauwelijks onderhevig is aan verbouwingen of vernieuwingen sinds de jaren '90.",
+"Zelfs deze zuivere raspaarden zullen, vrees ik, vrij snel vervangen worden. Het tijdperk van",
+"authentieke voetbalaccommodaties is dan definitief afgesloten.",
+"Natuurlijk, tijden veranderen en geen bouwwerk zal het tot in de eeuwigheid uithouden.",
+"Maar bij nieuwbouw van stadions kiezen beleidsbepalers en projectontwikkelaars te vaak voor",
+"status in plaats van voor sfeer."]},
+B:{title:"Tekst B — In gesprek met Hans Abbing",lines:[
+"Hans Abbing houdt meer van popconcerten dan van klassieke concerten. De manier van omgaan",
+"met elkaar die hij daar ervaart, mist hij in de concertzaal.",
+"<em>Wat is uw bezwaar tegen de klassieke concerten?</em>",
+"“Ik ben ervan overtuigd dat tachtig procent van de ‘klassieke’ luisteraars niet actief",
+"luistert, maar zich in een warm bad van muziek onderdompelt. Je moet de hele avond op",
+"dezelfde plek blijven zitten. Bij een popconcert zijn de toehoorders meer actief betrokken",
+"bij de muziek. De gedragsregels zijn veel minder streng. Dat zal bij klassieke concerten",
+"ook gebeuren, 't is alleen een kwestie van tijd.”",
+"<em>Denkt u werkelijk dat die situatie zal veranderen?</em>",
+"“De vergrijzing is duidelijk. De pogingen jong publiek te trekken zijn richtingloos.",
+"Voor de toekomst zie ik verschillende lijnen. Wat al opkomt is de vervlakking. Orkesten zullen",
+"steeds meer populair repertoire spelen. Mettertijd zullen de meeste professionele orkesten",
+"verdwijnen. De leemte die zij achterlaten, wordt opgevuld door orkesten van amateurs",
+"en conservatoriumstudenten. De top blijft bestaan, maar wordt duurder en exclusiever.”",
+"<em>Hoe moeten we het tij keren?</em>",
+"“De beste kans bieden klassieke concerten in een lossere setting. Denk aan de volgende",
+"formule: veel eigentijds repertoire en de mogelijkheid te staan, iets te drinken, in en uit",
+"te lopen. De klassieke muziekwereld kan leren van de open, feestelijke maar ook ‘gewonere’",
+"sfeer bij popconcerten.”",
+"<em>De zaal uit kunnen lopen, dat stoort toch verschrikkelijk!</em>",
+"“Het stoort enigszins, maar dat is niet erg. Je geniet van de muziek als geheel. Details kun",
+"je thuis op cd horen. En bewegen is belangrijk! Die absolute stilte in concertzalen maakt",
+"klassieke concerten nodeloos moeilijk en zwaar.”",
+"<em>Ik ervaar concerten als oases van concentratie in een hectisch leven.</em>",
+"“U vindt de bestaande gedragscode dus prettig. Dat mag. Met u zijn er velen. Nóg wel.",
+"Maar het worden er minder. Ik beweer niet dat de traditionele klassieke concerten afgeschaft",
+"moeten worden, maar om het publiek aan te vullen en te verjongen, moeten er tegelijkertijd",
+"alternatieven komen.”",
+"<em>Zijn luisteraars naar klassieke muziek niet zo erg betrokken?</em>",
+"“Zij houden hun emoties in. Jongeren vinden een dergelijke houding stijf en nep – terwijl ze",
+"de muziek op zich vaak best waarderen. Dat gegeven kun je, met het oog op teruglopende",
+"bezoekcijfers, niet naast je neerleggen. Klassieke muziek moet niet zo op een voetstuk worden",
+"geplaatst, dat maakt haar zo gewichtig.”",
+"<em>Anderen wijten de oorzaak van teruglopende bezoekcijfers vaak meer aan verslechterd</em>",
+"<em>onderwijs dan aan de “sfeer”. Je moet er iets van snappen om het te waarderen.</em>",
+"“Dat geloof ik niet. Dan zou klassiek ook niet worden gewaardeerd op radio of cd, terwijl 22 %",
+"van de jongeren thuis wél wekelijks naar klassieke muziek luistert. Nee, het is het imago dat de",
+"drempel hoog houdt. Daar moet dus iets aan gebeuren. Het is buigen of barsten.”"]},
+C:{title:"Tekst C — Alweer een dag",paras:[
+"Vanmorgen was hij al vroeg wakker. Een magnifiek gevoel. De maan lachte hem nog toe en de sterren waren in volle glorie aanwezig. Mooi vond hij dat, zo'n heldere nacht. Zo'n nacht waarop je zo het universum in kon kijken. Koud was het nog wel geweest toen hij wakker werd, maar hij was de buitenlucht gewend en had al heel wat jaartjes ervaring met zo'n situatie.",
+"Dag na dag, na dag, na dag. Al zeer vroeg kwam zijn omgeving tot leven. Alles en iedereen om hem heen kwetterde, tsjilpte, babbelde, kwekte, mekkerde en fluisterde. En altijd vond hij dat gezellig: te midden van een drukte van jewelste en hij in het midden als een baken van rust. Velen had hij al zien komen en gaan. Haastig en snel. Plotseling waren ze er, dan bleven ze even om vervolgens met de noorderzon te vertrekken.",
+"Die ervaring was voor hem een kwestie van routine geworden. Hij begreep niet dat anderen zo'n leven prettig vonden. Altijd druk, altijd in de weer, altijd bezig. Nee, hij was ervan overtuigd dat hij zijn eigen leventje toch beter had ingericht. Al moest hij toegeven dat de dagen wel op elkaar leken en dat anderen hem nogal eens negeerden of soms zelfs misbruik van hem maakten. Dat liet hij dan maar toe, zolang ze zijn rustige bestaan niet al te erg verstoorden.",
+"Het was nu alweer bijna middag. Langzaam begon hij zich eens uit te rekken om zijn ledematen wat zonnestralen te laten vangen. Dat was iets wat hij zijn hele leven al probeerde: de zon vangen. Als hij die toch eens te pakken kon krijgen. Die prachtige gouden bol, die dag in dag uit op zijn ietwat kalende kruin scheen. De zon, het middelpunt van zijn wereld, het symbool van hoop en illusie. Maar nog nooit was hem dat gelukt, toch bleef hij het proberen.",
+"Ook vandaag weer probeerde hij de zon te vangen. Maar hij ervoer voor de zoveelste keer dat de zon aan de ene kant symbool was van hoop en illusie en aan de andere kant een symbool voor desillusie en ondergang. Elke dag, tegen de avond, moest hij toekijken hoe de zon achter de horizon verdween, zonder dat hij hem had kunnen vangen. Maar vandaag had hij een geluk bij een ongeluk, want vandaag was het schouwspel, dat het ondergaan van de zon af en toe met zich mee bracht, prachtig. Het hele kleurenspel tussen geel en rood werd uitgevoerd, inclusief oranje. Vandaag kon hij genieten van zijn desillusie.",
+"Na die geweldige zonsondergang werd het al snel donker en kondigde de nacht zich aan. De wereld om hem heen ging weer naar bed, en ook hij maakte zich weer op voor een korte slaap. Morgen was er weer een dag voor hem. Misschien dat die dag weer iets nieuws zou brengen voor een machtige eik als hij."]}
+};
+
+const MATCH_OPTS=[["A","afwezigheid"],["B","angst"],["C","gezelschap"],["D","hitte"],["E","ontwaken"],["F","poging"],["G","rust"],["H","teleurstelling"],["I","tevreden"]];
+
+const Q=[
+{n:"1",t:"A",m:5,type:"multi",need:5,
+ prompt:"Welke vijf uitspraken zijn in overeenstemming met de inhoud van tekst A?",
+ note:"Voorbeeld gegeven: E.",
+ opts:[["A","De nieuwe stadions hebben allemaal een dak boven het veld."],["B","De nieuwe stadions trekken steeds meer bezoekers."],["C","Supporters zijn blij met de nieuwe stadions."],["D","De resterende oude stadions zullen op den duur verdwijnen."],["F","De nieuwe stadions lijken erg veel op elkaar."],["G","De oude stadions hebben een eigen sfeer."],["H","De tijd van het amateur voetbal is voorbij."],["I","De meeste steden in Nederland hebben nog een oud stadion."],["J","De nieuwe stadions zijn ook voor andere evenementen bestemd."],["K","Ook de nieuwe stadions zullen ooit verdwijnen."]],
+ ans:["D","F","G","J","K"],
+ exp:"<b>D</b> r.23 “zuivere raspaarden … vrij snel vervangen” · <b>F</b> r.6–7 “prefab-bouwpakketten”, “eenheidsworst” · <b>G</b> r.19 “vier aparte tribunes … eigen identiteit” · <b>J</b> r.17 “centra waar nog veel meer andere evenementen plaatsvinden” · <b>K</b> r.25 “geen bouwwerk zal het tot in de eeuwigheid uithouden”.<br>Afgewezen: A (alleen “soms zelfs” overdekt) · B (prijzen jagen supporters weg) · C (“afkeer”) · H (amateurvoetbal komt niet voor) · I (slechts 7 van de 38)."},
+{n:"2",t:"A",m:2,type:"short",
+ prompt:"Er is een duidelijk verschil tussen status en sfeer. Geef van elk een voorbeeld met een element uit de tekst.",
+ pts:["Status: de dure skyboxen voor genodigden","Sfeer: vier aparte tribunes, elk met een eigen identiteit"],
+ exp:"Ook goed voor status: “een stad die zoiets niet heeft, telt eigenlijk niet meer mee”. Ook goed voor sfeer: “de typische ouderwetse onvervalste voetbalsfeer”."},
+{n:"3",t:"A",m:1,type:"short",prompt:"Waarnaar verwijst “die” (regel 3)?",
+ pts:["De (commerciële) meerwaarde van zo'n modern stadion"],
+ exp:"“Zo'n modern stadion zal commercieel gezien wel een meerwaarde hebben, maar <b>die</b> ging wel ten koste van …”"},
+{n:"4",t:"A",m:1,type:"short",prompt:"Waarnaar verwijst “dat laatste” (regel 10)?",
+ pts:["Dat er doorgaans meer mensen in het stadion kunnen"],
+ exp:"Niet “meer zitplaatsen”: ‘laatste’ wijst op het tweede van de twee genoemde punten."},
+{n:"5",t:"A",m:1,type:"short",prompt:"Waarnaar verwijst “daarvoor” (regel 20)?",
+ pts:["De eigen identiteit van elke afzonderlijke tribune"],
+ exp:"“Ook de bezoekende partij had ontzag <b>daarvoor</b>” — voor die aparte tribunes met elk hun eigen identiteit."},
+{n:"6",t:"A",m:1,type:"mc",prompt:"Welk woord drukt het meest de afkeer van de schrijver uit?",
+ opts:[["A","modern (regel 3)"],["B","betonnen (regel 6)"],["C","groteske (regel 12)"],["D","futuristisch (regel 15)"]],ans:"C",
+ exp:"“Grotesk” is het enige ronduit waardeoordeel: het betekent wanstaltig. De andere drie zijn beschrijvend, ook al klinken ze in deze context negatief."},
+{n:"7",t:"A",m:1,type:"mc",prompt:"Hoe zou je deze tekst willen typeren?",
+ opts:[["A","Als een kort verhaal"],["B","Als een kritische beschouwing"],["C","Als een reclametekst"],["D","Als een sportverslag"]],ans:"B",
+ exp:"De schrijver betoogt met argumenten en een duidelijk standpunt (“status in plaats van sfeer”). Geen verhaallijn, geen wedstrijd, en zeker geen reclame."},
+{n:"8",t:"B",m:3,type:"short",
+ prompt:"Geef drie redenen, genoemd in regel 1–8, waarom Abbing de voorkeur geeft aan popconcerten.",
+ pts:["Toehoorders zijn actiever betrokken bij de muziek","De gedragsregels zijn veel minder streng","Je hoeft niet de hele avond op dezelfde plek te blijven zitten"],
+ exp:"Ook goed: “de manier van omgaan met elkaar” (r.1–2)."},
+{n:"9",t:"B",m:1,type:"short",prompt:"Uit welke zin in regel 9–14 blijkt dat het publiek bij klassieke concerten steeds ouder wordt?",
+ pts:["“De vergrijzing is duidelijk.”"],
+ exp:"Vergrijzing = het ouder worden van een bevolkingsgroep. Let op: de vraag wil één zin, geciëerd."},
+{n:"10",t:"B",m:1,type:"short",prompt:"Welk voorbeeld noemt Abbing van “vervlakking”? (regel 11)",
+ pts:["Orkesten zullen steeds meer populair repertoire spelen"],
+ exp:"Het voorbeeld staat in de zin direct na het woord ‘vervlakking’."},
+{n:"11",t:"B",m:1,type:"short",
+ prompt:"In regel 31 staat dat jongeren klassieke muziek “op zich vaak best waarderen”. Met welke constatering verderop in de tekst is dat in tegenspraak?",
+ pts:["“Je moet er iets van snappen om het te waarderen.” (r. 35)"],
+ exp:"Als jongeren de muziek al waarderen zónder scholing, dan klopt de bewering niet dat je er kennis van moet hebben om ervan te kunnen genieten. De 22 %-zin is géén tegenspraak — die ondersteunt Abbing juist."},
+{n:"12",t:"B",m:1,type:"mc",prompt:"Wat betekent “leemte” (regel 13)?",
+ opts:[["A","Gebrek"],["B","Leegte"],["C","Stilte"],["D","Wanorde"]],ans:"B",
+ exp:"Een leemte is een gat of open plek die achterblijft — hier de plek van de verdwenen orkesten, die “wordt opgevuld”. ‘Gebrek’ is net te zwak: dat is een tekort, geen achtergelaten gat."},
+{n:"13",t:"B",m:1,type:"mc",prompt:"Wat betekent “nodeloos” (regel 23)?",
+ opts:[["A","Onnodig"],["B","Noodzakelijk"],["C","Noodlijdend"],["D","Onmogelijk"]],ans:"A",
+ exp:"Nodeloos = zonder dat het nodig is. B is juist het tegendeel; C en D zijn klankvallen."},
+{n:"14",t:"B",m:1,type:"mc",prompt:"Welke karakteristiek past het best bij de interviewer?",
+ opts:[["A","Hij is kritisch"],["B","Hij is neutraal"],["C","Hij is onbeleefd"],["D","Hij is opgewekt"]],ans:"A",
+ exp:"De interviewer brengt tegenwerpingen in (“dat stoort toch verschrikkelijk!”, “Ik ervaar concerten als oases van concentratie”). Dat is kritisch doorvragen, niet neutraal — maar ook niet onbeleefd."},
+{n:"15",t:"C",m:1,type:"match",prompt:"Welk woord geeft het best de inhoud van <span class='pn'>alinea ❷</span> weer?",
+ note:"Voorbeeld: alinea ❶ = E (ontwaken).",ans:"C",
+ exp:"Alles om hem heen “kwetterde, tsjilpte, babbelde” en “altijd vond hij dat <b>gezellig</b>” — de alinea gaat over het gezelschap om hem heen."},
+{n:"16",t:"C",m:1,type:"match",prompt:"Welk woord geeft het best de inhoud van <span class='pn'>alinea ❸</span> weer?",ans:"I",
+ exp:"“Hij was ervan overtuigd dat hij zijn eigen leventje toch beter had ingericht” — tevredenheid met zijn eigen bestaan.",
+ flag:"Niet 100 % zeker. <b>G (rust)</b> is ook verdedigbaar vanwege “zijn rustige bestaan”. Ik heb G aan alinea ❻ gegeven; zet jouw sleutel G hier, dan is ❻ waarschijnlijk A (afwezigheid)."},
+{n:"17",t:"C",m:1,type:"match",prompt:"Welk woord geeft het best de inhoud van <span class='pn'>alinea ❹</span> weer?",ans:"F",
+ exp:"“Dat was iets wat hij zijn hele leven al <b>probeerde</b>: de zon vangen … toch bleef hij het proberen.”"},
+{n:"18",t:"C",m:1,type:"match",prompt:"Welk woord geeft het best de inhoud van <span class='pn'>alinea ❺</span> weer?",ans:"H",
+ exp:"De zon ontsnapt hem opnieuw: “Vandaag kon hij genieten van zijn <b>desillusie</b>.” Vergelijk vraag 28."},
+{n:"19",t:"C",m:1,type:"match",prompt:"Welk woord geeft het best de inhoud van <span class='pn'>alinea ❻</span> weer?",ans:"G",
+ exp:"“De wereld om hem heen ging weer naar bed, en ook hij maakte zich weer op voor een korte slaap.”"},
+{n:"20",t:"C",m:1,type:"tf",prompt:"Hij heeft geen last van de kou.",ans:true,
+ just:["“hij was de buitenlucht gewend en had al heel wat jaartjes ervaring met zo'n situatie”"],
+ exp:"Het was wél koud, maar dat deert hem niet — daarom waar."},
+{n:"21",t:"C",m:1,type:"tf",prompt:"Hij stoort zich eraan dat hij door anderen wordt lastig gevallen.",ans:false,
+ just:["“Dat liet hij dan maar toe, zolang ze zijn rustige bestaan niet al te erg verstoorden”"],
+ exp:"Hij laat het toe; hij stoort zich er juist niet aan."},
+{n:"22",t:"C",m:1,type:"tf",prompt:"Hij beschouwt de zon uitsluitend als een symbool van hoop en illusie.",ans:false,
+ just:["“aan de andere kant een symbool voor desillusie en ondergang”"],
+ exp:"Het woordje ‘uitsluitend’ maakt de bewering onwaar: de zon is vóór hem beide dingen tegelijk."},
+{n:"23",t:"C",m:1,type:"tf",prompt:"Zijn pogingen de zon te vangen, mislukken steeds.",ans:true,
+ just:["“nog nooit was hem dat gelukt”","“zonder dat hij hem had kunnen vangen”"],
+ exp:"Eén van beide citaten volstaat."},
+{n:"24",t:"C",m:2,type:"short",
+ prompt:"Uit welke <b>twee</b> constateringen in de eerste drie alinea's blijkt dat hij gewend is aan de drukte om zich heen?",
+ pts:["“te midden van een drukte van jewelste en hij in het midden als een baken van rust”","“Die ervaring was voor hem een kwestie van routine geworden”"],
+ exp:"Ook goed: “altijd vond hij dat gezellig” en “Velen had hij al zien komen en gaan”."},
+{n:"25",t:"C",m:1,type:"short",prompt:"Welk woord in <span class='pn'>alinea ❶</span> heeft dezelfde betekenis als “heelal”?",
+ pts:["universum"],exp:"“Zo'n nacht waarop je zo het <b>universum</b> in kon kijken.”"},
+{n:"26",t:"C",m:1,type:"short",prompt:"Welk woord in <span class='pn'>alinea ❸</span> heeft dezelfde betekenis als “erkennen”?",
+ pts:["toegeven"],exp:"“Al moest hij <b>toegeven</b> dat de dagen wel op elkaar leken …”"},
+{n:"27",t:"C",m:1,type:"short",prompt:"Welk woord in <span class='pn'>alinea ❹</span> heeft dezelfde betekenis als “enigszins”?",
+ pts:["ietwat"],exp:"“… die dag in dag uit op zijn <b>ietwat</b> kalende kruin scheen.”"},
+{n:"28",t:"C",m:1,type:"short",prompt:"Welk woord in <span class='pn'>alinea ❺</span> heeft dezelfde betekenis als “teleurstelling”?",
+ pts:["desillusie"],exp:"“Vandaag kon hij genieten van zijn <b>desillusie</b>.”"},
+{n:"29",t:"C",m:1,type:"short",
+ prompt:"Geef aan in welke zin uit de laatste drie alinea's duidelijk wordt wie de “hij” in dit verhaal is. Citeer deze zin.",
+ pts:["“Misschien dat die dag weer iets nieuws zou brengen voor een machtige eik als hij.”"],
+ exp:"De hele tekst houdt de identiteit achter: pas in de slotzin blijkt ‘hij’ een <b>eik</b>. Terugkijkend kloppen alle aanwijzingen — ledematen, kalende kruin, jaartjes buitenlucht."},
+{n:"30",t:"C",m:1,type:"short",
+ prompt:"Welke zin uit de tweede alinea staat in contrast met de zin “De wereld om hem heen ging weer naar bed”? <span class='pn'>(alinea ❻)</span>",
+ pts:["“Al zeer vroeg kwam zijn omgeving tot leven.”"],
+ exp:"Ochtend tegenover avond: tot leven komen tegenover naar bed gaan."},
+{n:"31",t:"C",m:1,type:"mc",prompt:"Hoe zou je dit korte verhaal het best kunnen typeren?",
+ opts:[["A","Als een dagboek"],["B","Als een novelle"],["C","Als een sprookje"],["D","Als een verslag"]],ans:"C",
+ exp:"Personificatie door de hele tekst heen — “De maan lachte hem nog toe”, een boom die denkt en voelt — en een moraal aan het slot.",
+ flag:"Niet 100 % zeker. ‘Sprookje’ dekt de lading niet helemaal, maar de alternatieven vallen af: geen ik-vorm (dagboek), veel te kort (novelle), te lyrisch (verslag)."},
+{n:"32",t:"C",m:1,type:"mc",prompt:"Welke boodschap past het best bij deze tekst?",
+ opts:[["A","Je moet je niet vervelen"],["B","Je moet kunnen omgaan met je omgeving"],["C","Je moet niet neerzien op de anderen"],["D","Je moet tevreden zijn met wie je bent"]],ans:"D",
+ exp:"De eik is tevreden met zijn eigen rustige bestaan, verdraagt de drukte, en geniet aan het eind zelfs van zijn mislukking.",
+ flag:"Niet 100 % zeker. <b>B</b> is goed verdedigbaar — hij gáát ook om met zijn omgeving. Ik koos D omdat de kern zelfaanvaarding is, niet sociale vaardigheid."}
+];
+
+const FILTERS=[{k:"all",sym:"Alle",nm:"hele Deel A"},{k:"A",sym:"A",nm:"Status of sfeer"},{k:"B",sym:"B",nm:"Hans Abbing"},{k:"C",sym:"C",nm:"Alweer een dag"}];
+const KEY="m10shuffle.v1";
+let S={filter:"all",order:[],i:0,done:{},skipped:[],streak:0,best:0};
+
+function pool(f){return Q.filter(q=>f==="all"||q.t===f)}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function load(){try{const r=localStorage.getItem(KEY);if(r){const p=JSON.parse(r);if(p&&p.order)S=Object.assign(S,p)}}catch(e){}}
+
+function newRound(f,only){
+  S.filter=f;
+  const ids=(only&&only.length?only:pool(f).map(q=>q.n));
+  S.order=shuffle(ids.slice());S.i=0;S.done={};S.skipped=[];S.streak=0;S.best=0;
+  save();render();
+}
+function cur(){return Q.find(q=>q.n===S.order[S.i])}
+function marksScored(){return Object.values(S.done).reduce((a,d)=>a+d.got,0)}
+function marksAttempted(){return Object.values(S.done).reduce((a,d)=>a+d.max,0)}
+function left(){return S.order.length-S.i}
+
+function tiles(){
+  const n=document.getElementById("tiles");n.innerHTML="";
+  FILTERS.forEach(f=>{
+    const b=document.createElement("button");
+    b.className="tile";b.type="button";b.setAttribute("aria-pressed",String(S.filter===f.k));
+    const c=pool(f.k);
+    b.innerHTML=`<span class="sym">${f.sym}</span><span class="nm">${f.nm}</span><span class="ct">${c.length} vr · ${c.reduce((a,q)=>a+q.m,0)} p</span>`;
+    b.onclick=()=>newRound(f.k);n.appendChild(b);
+  });
+}
+function stats(){
+  document.getElementById("sMarks").textContent=marksScored()+"/"+marksAttempted();
+  document.getElementById("sStreak").textContent=S.streak;
+  document.getElementById("sLeft").textContent=left();
+}
+function passageHTML(t){
+  const p=PASSAGE[t];
+  if(p.paras){
+    const m=["❶","❷","❸","❹","❺","❻"];
+    return `<h4>${p.title}</h4>`+p.paras.map((x,i)=>`<p><i class="pn">${m[i]}</i><span>${x}</span></p>`).join("");
+  }
+  return `<h4>${p.title}</h4>`+p.lines.map((x,i)=>`<p><i>${(i+1)%5===0?i+1:""}</i><span>${x}</span></p>`).join("");
+}
+const esc=s=>s.replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+
+function render(){
+  tiles();stats();
+  const card=document.getElementById("card");card.innerHTML="";
+  if(S.i>=S.order.length){return done(card)}
+  const q=cur(),d=S.done[q.n];
+  const wrap=document.createElement("div");wrap.style.display="grid";wrap.style.gap="14px";
+
+  const meta=document.createElement("div");meta.className="meta";
+  meta.innerHTML=`<span class="src">${d?`M10 · Tekst ${q.t} · vraag ${q.n}`:`<span class="hidden-src">bron verborgen tot je antwoordt</span>`}</span><span>${S.i+1} / ${S.order.length}</span>`;
+  wrap.appendChild(meta);
+
+  const det=document.createElement("details");det.className="passage";
+  det.innerHTML=`<summary>Toon tekst ${q.t}</summary><div class="ptext">${passageHTML(q.t)}</div>`;
+  wrap.appendChild(det);
+
+  const pr=document.createElement("div");pr.className="prompt";
+  pr.innerHTML=`<span class="qtxt">${q.prompt}</span><span class="mk">[${q.m} ${q.m===1?"punt":"punten"}]</span>`;
+  wrap.appendChild(pr);
+  if(q.note){const nn=document.createElement("p");nn.className="hint";nn.textContent=q.note;wrap.appendChild(nn)}
+
+  const body=document.createElement("div");body.style.display="grid";body.style.gap="12px";
+  wrap.appendChild(body);card.appendChild(wrap);
+
+  if(q.type==="mc"||q.type==="match")mcView(q,d,body);
+  else if(q.type==="multi")multiView(q,d,body);
+  else if(q.type==="tf")tfView(q,d,body);
+  else shortView(q,d,body);
+}
+
+function after(q,body,got){
+  const v=document.createElement("div");
+  v.className="verdict "+(got===q.m?"ok":got>0?"":"no");
+  v.innerHTML=got===q.m?`✓ ${got}/${q.m}`:`${got}/${q.m}`;
+  body.appendChild(v);
+  if(q.exp){const e=document.createElement("div");e.className="exp";e.innerHTML=q.exp;body.appendChild(e)}
+  if(q.flag){const f=document.createElement("div");f.className="flag";f.innerHTML="⚑ "+q.flag;body.appendChild(f)}
+  const r=document.createElement("div");r.className="row";
+  const b=document.createElement("button");b.className="btn";b.id="nextBtn";
+  b.textContent=S.i+1>=S.order.length?"Resultaat":"Volgende";
+  b.onclick=()=>{S.i++;save();render()};
+  r.appendChild(document.createElement("span"));r.appendChild(b);body.appendChild(r);
+  b.focus();
+}
+function record(q,got){
+  S.done[q.n]={got:got,max:q.m};
+  if(got===q.m){S.streak++;S.best=Math.max(S.best,S.streak)}else S.streak=0;
+  save();stats();
+}
+function controls(body,q){
+  const r=document.createElement("div");r.className="row";
+  const l=document.createElement("div");l.className="btns";
+  const sk=document.createElement("button");sk.className="btn ghost";sk.textContent="Sla over (S)";
+  sk.onclick=()=>skip();l.appendChild(sk);
+  r.appendChild(l);body.appendChild(r);return r;
+}
+function skip(){
+  const id=S.order[S.i];
+  if(S.done[id])return;
+  S.order.splice(S.i,1);S.order.push(id);
+  if(!S.skipped.includes(id))S.skipped.push(id);
+  save();render();
+}
+
+function mcView(q,d,body){
+  const opts=q.type==="match"?MATCH_OPTS:q.opts;
+  const box=document.createElement("div");box.className="opts";
+  opts.forEach(([k,txt])=>{
+    const b=document.createElement("button");b.className="opt";b.type="button";b.dataset.k=k;
+    b.innerHTML=`<span class="k">${k}</span><span>${esc(txt)}</span>`;
+    if(d){b.disabled=true;if(k===q.ans)b.classList.add("ok");else if(d.pick===k)b.classList.add("no")}
+    else b.onclick=()=>{
+      S.done[q.n]={got:k===q.ans?q.m:0,max:q.m,pick:k};
+      record(q,k===q.ans?q.m:0);S.done[q.n].pick=k;save();render();
+    };
+    box.appendChild(b);
+  });
+  body.appendChild(box);
+  if(d)after(q,body,d.got);else controls(body,q);
+}
+
+function multiView(q,d,body){
+  const sel=new Set(d?d.pick:[]);
+  const box=document.createElement("div");box.className="opts";
+  q.opts.forEach(([k,txt])=>{
+    const b=document.createElement("button");b.className="opt";b.type="button";b.dataset.k=k;
+    b.innerHTML=`<span class="k">${k}</span><span>${esc(txt)}</span>`;
+    if(d){b.disabled=true;
+      if(q.ans.includes(k))b.classList.add("ok");
+      else if(sel.has(k))b.classList.add("no");
+    }else{
+      b.setAttribute("aria-pressed",String(sel.has(k)));
+      b.onclick=()=>{sel.has(k)?sel.delete(k):(sel.size<q.need&&sel.add(k));
+        b.setAttribute("aria-pressed",String(sel.has(k)));
+        box.querySelectorAll(".opt").forEach(o=>o.setAttribute("aria-pressed",String(sel.has(o.dataset.k))));
+        go.disabled=sel.size!==q.need;go.textContent=`Controleer (${sel.size}/${q.need})`};
+    }
+    box.appendChild(b);
+  });
+  body.appendChild(box);
+  if(d){after(q,body,d.got);return}
+  const r=controls(body,q);
+  const go=document.createElement("button");go.className="btn";go.disabled=true;
+  go.textContent=`Controleer (0/${q.need})`;
+  go.onclick=()=>{
+    const got=[...sel].filter(k=>q.ans.includes(k)).length;
+    S.done[q.n]={got:got,max:q.m,pick:[...sel]};record(q,got);S.done[q.n].pick=[...sel];save();render();
+  };
+  r.appendChild(go);
+}
+
+function tfView(q,d,body){
+  const box=document.createElement("div");box.className="tf";
+  [["Waar",true],["Onwaar",false]].forEach(([lab,val])=>{
+    const b=document.createElement("button");b.className="opt";b.type="button";b.dataset.tf=String(val);
+    b.innerHTML=`<span>${lab}</span>`;
+    if(d){b.disabled=true;if(val===q.ans)b.classList.add("ok");else if(d.pick===val)b.classList.add("no")}
+    else b.onclick=()=>{
+      if(val!==q.ans){S.done[q.n]={got:0,max:q.m,pick:val};record(q,0)}
+      else S.done[q.n]={got:0,max:q.m,pick:val,stage:"just"};
+      save();render()};
+    box.appendChild(b);
+  });
+  body.appendChild(box);
+  if(!d){controls(body,q);return}
+  if(d.pick!==q.ans){
+    const e=document.createElement("div");e.className="exp";
+    e.innerHTML=`Juiste antwoord: <b>${q.ans?"Waar":"Onwaar"}</b>. Rechtvaardiging: <q>${q.just[0]}</q>`;
+    body.appendChild(e);
+    after(q,body,0);return;
+  }
+  const ms=document.createElement("div");ms.className="ms";
+  ms.innerHTML=`<h3>Rechtvaardiging — één citaat volstaat</h3>`;
+  q.just.forEach(j=>{const p=document.createElement("div");p.className="pt static";p.innerHTML=`<q>${j}</q>`;ms.appendChild(p)});
+  body.appendChild(ms);
+  if(d.stage==="just"){
+    const r=document.createElement("div");r.className="row";
+    const l=document.createElement("div");l.className="btns";
+    const no=document.createElement("button");no.className="btn ghost";no.textContent="Niet goed (0)";
+    no.onclick=()=>{S.done[q.n]={got:0,max:q.m,pick:d.pick};record(q,0);save();render()};
+    const yes=document.createElement("button");yes.className="btn";yes.id="saveBtn";yes.textContent="Had ik (1)";
+    yes.onclick=()=>{S.done[q.n]={got:q.m,max:q.m,pick:d.pick};record(q,q.m);save();render()};
+    l.appendChild(no);r.appendChild(l);r.appendChild(yes);body.appendChild(r);yes.focus();
+  }else after(q,body,d.got);
+}
+
+function shortView(q,d,body){
+  if(!d){
+    const ta=document.createElement("textarea");ta.id="ans";ta.placeholder="Typ je antwoord (optioneel) …";
+    body.appendChild(ta);
+    const r=controls(body,q);
+    const go=document.createElement("button");go.className="btn";go.id="revealBtn";go.textContent="Toon puntenschema";
+    go.onclick=()=>{S.done[q.n]={got:0,max:q.m,stage:"mark",txt:ta.value};save();render()};
+    r.appendChild(go);return;
+  }
+  if(d.txt){const y=document.createElement("div");y.className="exp";y.innerHTML=`<b>Jouw antwoord:</b> ${esc(d.txt)}`;body.appendChild(y)}
+  const ms=document.createElement("div");ms.className="ms";
+  ms.innerHTML=`<h3>Puntenschema — vink aan wat je had</h3>`;
+  const boxes=[];
+  q.pts.forEach((p,i)=>{
+    const lab=document.createElement("label");lab.className="pt";
+    const cb=document.createElement("input");cb.type="checkbox";cb.id=`pt${q.n}_${i}`;
+    if(d.stage!=="mark"){cb.disabled=true;cb.checked=(d.ticks||[]).includes(i)}
+    const sp=document.createElement("span");sp.innerHTML=`<q>${p}</q>`;
+    lab.appendChild(cb);lab.appendChild(sp);ms.appendChild(lab);boxes.push(cb);
+  });
+  body.appendChild(ms);
+  if(d.stage==="mark"){
+    const r=document.createElement("div");r.className="row";
+    const sv=document.createElement("button");sv.className="btn";sv.id="saveBtn";sv.textContent="Punten opslaan";
+    sv.onclick=()=>{
+      const ticks=boxes.map((b,i)=>b.checked?i:-1).filter(i=>i>=0);
+      const got=Math.min(ticks.length,q.m);
+      S.done[q.n]={got:got,max:q.m,txt:d.txt,ticks:ticks};record(q,got);save();render();
+    };
+    r.appendChild(document.createElement("span"));r.appendChild(sv);body.appendChild(r);sv.focus();
+  }else after(q,body,d.got);
+}
+
+function done(card){
+  const sc=marksScored(),mx=marksAttempted();
+  const pct=mx?Math.round(sc/mx*100):0;
+  const byT={};Object.keys(S.done).forEach(n=>{const q=Q.find(x=>x.n===n);byT[q.t]=byT[q.t]||[0,0];byT[q.t][0]+=S.done[n].got;byT[q.t][1]+=S.done[n].max});
+  const wrong=Object.keys(S.done).filter(n=>S.done[n].got<S.done[n].max);
+  const d=document.createElement("div");d.className="done";
+  d.innerHTML=`<div class="big">${sc}/${mx}</div><div class="hint">${pct}% · langste reeks ${S.best}${S.skipped.length?" · "+S.skipped.length+" overgeslagen":""}</div>`;
+  const grid=document.createElement("div");grid.className="bybits";
+  Object.keys(byT).sort().forEach(t=>{const e=document.createElement("div");
+    e.innerHTML=`<span>Tekst ${t}</span>${byT[t][0]}/${byT[t][1]}`;grid.appendChild(e)});
+  d.appendChild(grid);
+  const r=document.createElement("div");r.className="btns";
+  const again=document.createElement("button");again.className="btn";again.textContent="Opnieuw schudden";
+  again.onclick=()=>newRound(S.filter);
+  r.appendChild(again);
+  if(wrong.length){
+    const rt=document.createElement("button");rt.className="btn ghost";
+    rt.textContent=`Alleen de ${wrong.length} fout (${wrong.length===1?"1 vraag":wrong.length+" vragen"})`;
+    rt.onclick=()=>newRound(S.filter,wrong);r.appendChild(rt);
+  }
+  d.appendChild(r);card.appendChild(d);
+}
+
+document.addEventListener("keydown",e=>{
+  if(e.metaKey||e.ctrlKey||e.altKey)return;
+  const tag=(e.target.tagName||"").toLowerCase();
+  const typing=tag==="textarea"||tag==="input";
+  if(e.key==="Enter"&&!e.shiftKey){
+    const b=document.getElementById("nextBtn")||document.getElementById("saveBtn")||document.getElementById("revealBtn");
+    if(b){e.preventDefault();b.click();return}
+  }
+  if(typing)return;
+  if(e.key==="s"||e.key==="S"){e.preventDefault();skip();return}
+  const k=e.key.toUpperCase();
+  if(/^[A-K]$/.test(k)){
+    const b=document.querySelector(`.opt[data-k="${k}"]:not(:disabled)`);
+    if(b){e.preventDefault();b.click()}
+  }
+  if(/^[1-9]$/.test(e.key)){
+    const all=[...document.querySelectorAll(".opt:not(:disabled)")];
+    const b=all[parseInt(e.key,10)-1];if(b){e.preventDefault();b.click()}
+  }
+});
+
+load();
+if(!S.order.length||!S.order.every(n=>Q.some(q=>q.n===n)))newRound("all");else render();
+</script>
